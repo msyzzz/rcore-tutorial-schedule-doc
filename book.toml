@@ -1,0 +1,6 @@
+[book]
+authors = ["msyzzz"]
+language = "en"
+multilingual = false
+src = "src"
+title = "rcore-tutorial-schedule-doc"
