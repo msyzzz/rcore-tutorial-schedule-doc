@@ -1,6 +1,6 @@
 [book]
-authors = ["msyzzz"]
+authors = ["Clement"]
 language = "en"
 multilingual = false
 src = "src"
-title = "rcore-tutorial-schedule-doc"
+title = "PRA-doc"
