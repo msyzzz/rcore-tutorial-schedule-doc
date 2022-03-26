@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>进程调度 - schedule-doc</title>
+        <title>批处理系统与交互式系统的调度 - schedule-doc</title>
         
         
 
@@ -95,7 +95,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="intro.html"><strong aria-hidden="true">1.</strong> 进程调度</a></li><li class="chapter-item expanded "><a href="part1.html"><strong aria-hidden="true">2.</strong> 批处理系统与交互式系统的调度</a></li><li class="chapter-item expanded "><a href="part2.html"><strong aria-hidden="true">3.</strong> 通用计算机系统的调度</a></li><li class="chapter-item expanded "><a href="part3.html"><strong aria-hidden="true">4.</strong> 实时计算机系统的调度</a></li><li class="chapter-item expanded "><a href="part4.html"><strong aria-hidden="true">5.</strong> 多处理器系统调度</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="intro.html"><strong aria-hidden="true">1.</strong> 进程调度</a></li><li class="chapter-item expanded "><a href="part1.html" class="active"><strong aria-hidden="true">2.</strong> 批处理系统与交互式系统的调度</a></li><li class="chapter-item expanded "><a href="part2.html"><strong aria-hidden="true">3.</strong> 通用计算机系统的调度</a></li><li class="chapter-item expanded "><a href="part3.html"><strong aria-hidden="true">4.</strong> 实时计算机系统的调度</a></li><li class="chapter-item expanded "><a href="part4.html"><strong aria-hidden="true">5.</strong> 多处理器系统调度</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -165,20 +165,45 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1 id="进程调度"><a class="header" href="#进程调度">进程调度</a></h1>
-<p>进程就是操作系统选取某个可执行文件并对其进行一次动态执行的过程。在内核中，需要有一个进程管理器，在其中记录每个进程对资源的占用情况，这是内核作为一个硬件资源管理器所必须要做到的。</p>
-<p>当处理器只有一个，而在内存中存在多个程序/任务/进程的时候，它们就会共享处理器资源。而操作系统就要负责让它们能够高效合理地共享处理器资源，这就引入了调度（scheduling）这个概念。进程调度就是操作系统进程管理的重要组成部分。事实上，在计算机出现之前，调度的概念和应用就出现在人类的生活、工作和生产环境中了，如汽车装配线调度、工厂作业车间调度等。调度的一个一般定义是：在一定的约束条件下，把有限的资源在时间上分配给若干个任务，以满足或优化一个或多个性能指标。对于计算机系统而言，就是在一台计算机中的内存中运行了多个进程，操作系统把有限的处理器在时间上分配给各个进程，以满足或优化进程执行的性能指标。</p>
-<p>在rCore-Tutorial中，给每个任务分配了时间片，任务执行消耗完时间片后，操作系统就可以抢占正在执行的任务，把处理器分配给其他任务执行。这就是一种基于时间片的轮转调度策略。再之后实现的操作系统都采用了这种调度策略。</p>
-<p>接下来要做的便是按照更多的调度算法原理，为rCore-Tutorial实现各种进程调度机制，来提高系统的调度能力。</p>
+                        <h1 id="批处理系统与交互式系统的调度"><a class="header" href="#批处理系统与交互式系统的调度">批处理系统与交互式系统的调度</a></h1>
+<h3 id="先来先服务fcfs"><a class="header" href="#先来先服务fcfs">先来先服务(FCFS)</a></h3>
+<p>先来先服务（first-come first-severd，也称First-in first-out，先进先出）调度策略的基本思路就是按进程请求处理器的先后顺序来使用处理器。在具体实现上，操作系统建立一个就绪队列，当一个应用进入被加载，并创建为进程进入就绪态后，就按先后顺序放入就绪队列尾；操作系统从就绪队列头取出进程来执行。操作系统不会主动打断进程的运行。当正在运行的进程主动放弃处理器，操作系统会把该进程放到就绪队列末尾，并从就绪队列头取出新进程执行；当正在运行的进程阻塞时，操作系统会把该进程放到阻塞队列中，并从就绪队列头取出新进程执行；当阻塞进程转为就绪进程后，操作系统 会把该进程放到就绪队列末尾。</p>
+<p>该调度策略的优点是简单，容易实现。对于满足1~6的约束条件的执行环境，用这个调度策略的平均周转时间性能指标也很好。如果在一个在较长的时间段内，每个进程都能结束，那么公平性这个性能指标也是能得到保证的。</p>
+<p>FCFS 策略的缺点是，短进程可被排在长进程后面，平均等待时间往往很长。</p>
+<h3 id="时间片轮转调度rr"><a class="header" href="#时间片轮转调度rr">时间片轮转调度(RR)</a></h3>
+<p>时间片轮转（RR）调度算法是专门为分时系统设计的。它类似于 <a href="http://c.biancheng.net/view/1242.html">FCFS调度</a>，但是增加了抢占以切换进程。</p>
+<p>该算法中，将一个较小时间单元定义为时间量或时间片。时间片的大小通常为 10~100ms。就绪队列作为循环队列。CPU 调度程序循环整个就绪队列，为每个进程分配不超过一个时间片的 CPU。</p>
+<p>为了实现 RR 调度，我们再次将就绪队列视为进程的 FIFO 队列。新进程添加到就绪队列的尾部。CPU 调度程序从就绪队列中选择第一个进程，将定时器设置在一个时间片后中断，最后分派这个进程。</p>
+<p>现有的rCore-Tutorial便是按照这个逻辑在FCFS的基础上添加timer定时器，实现了RR调度。</p>
+<h3 id="最短作业优先sjf"><a class="header" href="#最短作业优先sjf">最短作业优先(SJF)</a></h3>
+<p>最短作业优先（SJF）调度算法将每个进程与其下次 CPU 执行的长度关联起来。当 CPU 变为空闲时，它会被赋给具有最短 CPU 执行的进程。</p>
+<p>理论上很简单，而SJF 算法的真正困难是如何知道下次 CPU 执行的长度。对于批处理系统的长期（或作业）调度，可以将用户提交作业时指定的进程时限作为长度。在这种情况下，用户有意精确估计进程时间，因为低值可能意味着更快的响应（过小的值会引起时限超出错误，进而需要重新提交）。SJF 调度经常用于长期调度。另一种方法是试图近似 SJF 调度。虽然不知道下一个 CPU 执行的长度，但是可以预测它。可以认为下一个 CPU 执行的长度与以前的相似。因此，通过计算下一个 CPU 执行长度的近似值，可以选择具有预测最短 CPU 执行的进程来运行。</p>
+<p>要为rCore-Tutorial实现，我采用第一种方法，让用户在提交可执行文件时对其执行时间进行标注，内核在初始化进程时，按照标注的大小，对进程就绪队列进行排序，这样每次取出执行的进程便是最短作业。</p>
+<h3 id="最短完成时间优先stcf"><a class="header" href="#最短完成时间优先stcf">最短完成时间优先(STCF)</a></h3>
+<p>上面提到的SJF算法不允许抢占，我们可以实现一种支持进程抢占的改进型SJF调度策略，即最短完成时间优先（Shortest Time to Complet First）调度策略。</p>
+<p>当一个新进程到达就绪队列而以前进程正在执行时，就需要选择了。新进程的下次 CPU 执行，与当前运行进程的尚未完成的 CPU 执行相比，可能还要小。STCF算法会抢占当前运行进程，而非抢占 SJF 算法会允许当前运行进程以先完成 CPU 执行。</p>
+<p>为实现抢占机制，在新进程到来时，不仅对进程就绪队列进行排序，同时也暂停当前进程，将其加回至就绪队列，重新选择最短进程执行。</p>
+<h3 id="最高响应比优先hrrn"><a class="header" href="#最高响应比优先hrrn">最高响应比优先(HRRN)</a></h3>
+<p>由于SJF的判断标准比较单调，在其基础上改进得到最高响应比优先调度算法，即选择就绪队列中响应比R值最高的进程：
+$$
+Ｒ＝(ｗ+s) / s
+$$
+w: 等待时间(waiting time); s: 执行时间(service time).</p>
+<p>HRRN为非抢占式的算法。因此只有当前运行的作业/进程主动放弃处理机时，才需要调度，才需要计算响应比。与SJF相比，HRRN综合考虑了等待时间和运行时间(要求服务时间)，避免了长作业饥饿等问题。</p>
+<p>在进程数据结构中添加对其到达时间的记录，在每次选择进程时利用该时间与标注的执行时间计算响应比，从而可以实现HRRN算法。</p>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
                         
+                            <a rel="prev" href="intro.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+                        
 
                         
-                            <a rel="next" href="part1.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next" href="part2.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <i class="fa fa-angle-right"></i>
                             </a>
                         
@@ -190,9 +215,13 @@
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
                 
+                    <a rel="prev" href="intro.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+                
 
                 
-                    <a rel="next" href="part1.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next" href="part2.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
                 

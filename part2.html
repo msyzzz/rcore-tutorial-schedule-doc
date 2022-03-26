@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>页面置换算法的实现 - schedule-doc</title>
+        <title>通用计算机系统的调度 - schedule-doc</title>
         
         
 
@@ -95,7 +95,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="ch1.html"><strong aria-hidden="true">1.</strong> 页面置换介绍</a></li><li class="chapter-item expanded "><a href="ch2.html"><strong aria-hidden="true">2.</strong> 页面置换机制</a></li><li class="chapter-item expanded "><a href="ch3.html" class="active"><strong aria-hidden="true">3.</strong> 页面置换算法的实现</a></li><li class="chapter-item expanded "><a href="test.html"><strong aria-hidden="true">4.</strong> 用户态程序测试</a></li><li class="chapter-item expanded "><a href="tree.html"><strong aria-hidden="true">5.</strong> 代码树</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="intro.html"><strong aria-hidden="true">1.</strong> 进程调度</a></li><li class="chapter-item expanded "><a href="part1.html"><strong aria-hidden="true">2.</strong> 批处理系统与交互式系统的调度</a></li><li class="chapter-item expanded "><a href="part2.html" class="active"><strong aria-hidden="true">3.</strong> 通用计算机系统的调度</a></li><li class="chapter-item expanded "><a href="part3.html"><strong aria-hidden="true">4.</strong> 实时计算机系统的调度</a></li><li class="chapter-item expanded "><a href="part4.html"><strong aria-hidden="true">5.</strong> 多处理器系统调度</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -165,23 +165,44 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1 id="页面置换算法的实现"><a class="header" href="#页面置换算法的实现">页面置换算法的实现</a></h1>
-<h2 id="局部页面置换算法"><a class="header" href="#局部页面置换算法">局部页面置换算法</a></h2>
-<h3 id="fifo页面置换算法"><a class="header" href="#fifo页面置换算法">FIFO页面置换算法</a></h3>
-<p>FIFO页面置换算法实现非常简单，只需要给每一个用户程序记录一个物理页面队列即可，在用户访问申请的内存并触发缺页异常分配物理页面时将对应PPN加入队列的队尾，在需要换出物理页面时将队首的物理页面换出即可。</p>
+                        <h1 id="通用计算机系统的调度"><a class="header" href="#通用计算机系统的调度">通用计算机系统的调度</a></h1>
+<h3 id="固定优先级的多级队列mq"><a class="header" href="#固定优先级的多级队列mq">固定优先级的多级队列(MQ)</a></h3>
+<p>多级队列调度算法将就绪队列分成多个单独队列。根据进程属性，如内存大小、进程优先级、进程类型等，一个进程永久分到一个队列，每个队列有自己的调度算法，通常在队列中采用RR调度。而队列间则通常采用固定优先级抢占调度，比如为前台队列设置更高的优先级，使前台队列先于后台队列执行。</p>
+<p>因此，在实现时，我们将原本的就绪队列一分为多，按照用户给定的优先级将进程置于不同的队列中，按照队列顺序以RR调度为基础执行。</p>
+<h3 id="多级反馈队列mlfq"><a class="header" href="#多级反馈队列mlfq">多级反馈队列(MLFQ)</a></h3>
+<p>通常在使用多级队列调度算法时，进程进入系统时被永久地分配到某个队列。例如，如果前台和后台进程分别具有单独队列，那么进程并不从一个队列移到另一个队列，这是因为进程不会改变前台或后台的性质。这种设置的优点是调度开销低，缺点是不够灵活。</p>
+<p>相反，多级反馈队列调度算法允许进程在队列之间迁移。这种想法是，根据不同 CPU 执行的特点来区分进程。如果进程使用过多的 CPU 时间，那么它会被移到更低的优先级队列。这种方案将 I/O 密集型和交互进程放在更高优先级队列上。由此确定的多级反馈队列调度则按照如下条件执行：</p>
+<ol>
+<li>创建进程并让进程首次进入就绪队列时，设置进程的优先级为最高优先级。</li>
+<li>进程用完其时间配额后，就会降低其优先级。</li>
+</ol>
+<p>那么在MQ的基础上，我们将所有的进程初始均放入第一个队列中，每当时间片轮转，当前进程未执行完毕，则将其调整到下一队列，而从最高队列重新选择进程执行，直到当前队列为空为止。</p>
+<h3 id="公平共享fss"><a class="header" href="#公平共享fss">公平共享(FSS)</a></h3>
+<p>从某种程度上看，MLFQ调度策略总提到的优先级就是对公平性的一种划分方式，有些进程优先级高，会更快地得到处理器执行，所分配到的处理器时间也多一些。但MLFQ并不是把公平性放在第一位。如果把公平性放在首位，我们就可以设计出另外一类调度策略 – 公平份额（Fair Share，又称为 比例份额，Proportional Share）调度。其基本思路是基于每个进程的重要性（即优先级）的比例关系，分配给该进程同比例的处理器执行时间。</p>
+<h4 id="彩票调度lottery"><a class="header" href="#彩票调度lottery">彩票调度(Lottery)</a></h4>
+<p>一种有意思的FSS调度是彩票调度（Lottery Scheduling），它是从经济学的的彩票行为中吸取营养，模拟了购买彩票和中奖的随机性，给每个进程发彩票，进程优先级越高，所得到的彩票就越多；然后每隔一段时间（如，一个时间片），举行一次彩票抽奖，抽出来的号属于哪个进程，哪个进程就能运行。</p>
+<p>其具体实现过程是，在每个时间片到时，操作系统就抽取彩票，由于操作系统已知总彩票数有10张，所以操作系统产生一个从0和9之间随机数作为获奖彩票号，拥有这个彩票号的进程中奖，并获得下一次处理器执行机会。通过在一段较长的时间内不断地抽彩票，基于统计学，可以保证两个两个进程可以获得与优先级等比例的处理器执行时间。</p>
+<h4 id="步长调度stride"><a class="header" href="#步长调度stride">步长调度(Stride)</a></h4>
+<p>另一种FSS调度为Stride调度。其基本思路是：每个进程有一个步长（Stride）属性值，这个值与进程优先级成反比，操作系统会定期记录每个进程的总步长，即行程（pass），并选择拥有最小行程值的进程运行。</p>
+<p>具体实现可以像这样：</p>
+<ol>
+<li>为每个进程设置一个当前 stride，表示该进程当前已经运行的“长度”。另外设置其对应的 pass 值（只与进程的优先权有关系），表示对应进程在调度后，stride 需要进行的累加值。</li>
+<li>每次需要调度时，从当前 runnable 态的进程中选择 stride 最小的进程调度。对于获得调度的进程 P，将对应的 stride 加上其对应的步长 pass。</li>
+<li>一个时间片后，回到上一步骤，重新调度当前 stride 最小的进程。</li>
+</ol>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
                         
-                            <a rel="prev" href="ch2.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="part1.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
                         
 
                         
-                            <a rel="next" href="test.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next" href="part3.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <i class="fa fa-angle-right"></i>
                             </a>
                         
@@ -193,13 +214,13 @@
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
                 
-                    <a rel="prev" href="ch2.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="part1.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
                 
 
                 
-                    <a rel="next" href="test.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next" href="part3.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
                 
