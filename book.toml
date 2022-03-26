@@ -1,6 +1,6 @@
 [book]
-authors = ["Clement"]
+authors = ["msyzzz"]
 language = "en"
 multilingual = false
 src = "src"
-title = "PRA-doc"
+title = "schedule-doc"
