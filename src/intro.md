@@ -9,3 +9,9 @@
 在rCore-Tutorial中，给每个任务分配了时间片，任务执行消耗完时间片后，操作系统就可以抢占正在执行的任务，把处理器分配给其他任务执行。这就是一种基于时间片的轮转调度策略。再之后实现的操作系统都采用了这种调度策略。
 
 接下来要做的便是按照更多的调度算法原理，为rCore-Tutorial实现各种进程调度机制，来提高系统的调度能力。
+
+
+
+[项目代码仓库](https://git.tsinghua.edu.cn/masy18/rCore-Tutorial-v3)
+
+[原始文档仓库](https://github.com/msyzzz/rcore-tutorial-schedule-doc)
